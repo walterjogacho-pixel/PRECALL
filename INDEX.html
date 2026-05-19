@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PreCall</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--surface:#0e1117;--card:#13181f;--border:#1e2530;
+  --accent:#3b82f6;--accent2:#6366f1;--danger:#ef4444;--warn:#f59e0b;
+  --ok:#10b981;--text:#f1f5f9;--muted:#64748b;--muted2:#94a3b8;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;font-size:14px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* ── AUTH SCREENS ── */
+.auth-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:var(--bg)}
+.auth-wrap::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(99,102,241,.12),transparent);pointer-events:none}
+.auth-box{width:100%;max-width:400px;position:relative}
+.brand{text-align:center;margin-bottom:32px}
+.brand-logo{font-size:2rem;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(135deg,#3b82f6,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand-tag{font-size:.78rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px}
+.auth-card h2{font-size:1rem;font-weight:600;margin-bottom:24px;color:var(--text)}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.75rem;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.field input{width:100%;background:#0a0d14;border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.btn-primary{width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:#fff;font-weight:600;font-size:.95rem;cursor:pointer;transition:opacity .2s;margin-top:4px}
+.btn-primary:hover{opacity:.88}
+.auth-hint{margin-top:14px;text-align:center;font-size:.75rem;color:var(--muted)}
+.auth-hint strong{color:var(--muted2)}
+.err-msg{color:var(--danger);font-size:.78rem;margin-top:8px;display:none}
+.auth-switch{margin-top:16px;text-align:center;font-size:.8rem;color:var(--muted)}
+.auth-switch a{color:var(--accent);cursor:pointer;text-decoration:none}
+
+/* ── APP ── */
+#app{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:rgba(13,18,27,.95);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(8px)}
+.topbar-logo{font-size:1.1rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#3b82f6,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-user{font-size:.8rem;color:var(--muted);background:var(--card);padding:5px 12px;border-radius:20px;border:1px solid var(--border)}
+.btn-ghost{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:6px 14px;cursor:pointer;font-size:.78rem;transition:.2s}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+main{flex:1;padding:28px 24px;max-width:1280px;margin:0 auto;width:100%}
+
+/* ── UPLOAD ── */
+.upload-zone{border:1.5px dashed var(--border);border-radius:16px;padding:40px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:var(--card)}
+.upload-zone:hover{border-color:var(--accent);background:rgba(59,130,246,.04)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:2.4rem;margin-bottom:10px}
+.upload-zone h3{font-size:1rem;margin-bottom:6px}
+.upload-zone p{color:var(--muted);font-size:.82rem}
+.upload-cols{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.col-tag{background:#0a0d14;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:.73rem;color:var(--muted2);font-family:monospace}
+.upload-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn-outline{padding:10px 18px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted2);cursor:pointer;font-size:.82rem;transition:.2s;white-space:nowrap}
+.btn-outline:hover{border-color:var(--muted2);color:var(--text)}
+.btn-outline.green{border-color:rgba(16,185,129,.4);color:var(--ok)}
+.btn-outline.green:hover{border-color:var(--ok)}
+
+/* ── DASHBOARD ── */
+#dashboard{display:none}
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dash-title{font-size:1.1rem;font-weight:600}
+.dash-sub{font-size:.8rem;color:var(--muted);margin-top:2px}
+.tag-demo{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:4px 12px;font-size:.75rem;color:var(--accent)}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat.blue::before{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.stat.red::before{background:var(--danger)}
+.stat.yellow::before{background:var(--warn)}
+.stat.green::before{background:var(--ok)}
+.stat.purple::before{background:var(--accent2)}
+.stat-lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.stat-val{font-size:1.8rem;font-weight:700;line-height:1}
+.stat-val.c-blue{color:var(--accent)}
+.stat-val.c-red{color:var(--danger)}
+.stat-val.c-yellow{color:var(--warn)}
+.stat-val.c-green{color:var(--ok)}
+.stat-val.c-purple{color:var(--accent2)}
+.stat-hint{font-size:.72rem;color:var(--muted);margin-top:4px}
+
+/* PANELS */
+.panels-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.panels-grid.full{grid-template-columns:1fr}
+@media(max-width:760px){.panels-grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;overflow:hidden}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-title{font-size:.78rem;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;margin:-4px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+td{padding:10px 10px;border-bottom:1px solid #111620;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.015)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600}
+.b-alto{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.2)}
+.b-medio{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.b-bajo{background:rgba(16,185,129,.12);color:var(--ok);border:1px solid rgba(16,185,129,.2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.rank{color:var(--muted);font-size:.75rem}
+.name-cell{font-weight:500;color:var(--text)}
+.sector-cell{color:var(--muted2)}
+
+/* BARS */
+.bar-list{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:flex;align-items:center;gap:10px;font-size:.82rem}
+.bar-label{width:100px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.8rem}
+.bar-track{flex:1;background:#0a0d14;border-radius:4px;height:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.bar-fill.accent{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.bar-fill.danger{background:var(--danger)}
+.bar-fill.warn{background:var(--warn)}
+.bar-fill.ok{background:var(--ok)}
+.bar-fill.purple{background:var(--accent2)}
+.bar-cnt{width:26px;text-align:right;color:var(--muted);font-size:.75rem}
+
+/* HORARIO */
+.hour-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.hour-cell{aspect-ratio:1;border-radius:4px;position:relative;cursor:default}
+.hour-cell:hover .hour-tip{display:block}
+.hour-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#1e2530;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:.7rem;white-space:nowrap;z-index:10;color:var(--text)}
+.hour-labels{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-top:4px}
+.hour-lbl{font-size:.62rem;color:var(--muted);text-align:center}
+
+/* EMPTY */
+.empty-row{text-align:center;padding:32px;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+
+<!-- REGISTRO -->
+<div class="auth-wrap" id="reg-screen" style="display:none">
+  <div class="auth-box">
+    <div class="brand">
+      <div class="brand-logo">PreCall</div>
+      <div class="brand-tag">Anticipa. No Reacciones.</div>
+    </div>
+    <div class="auth-card">
+      <h2>Crear cuenta</h2>
+      <div class="field"><label>Nombre de la empresa</label><input id="reg-empresa" type="text" placeholder="ISP Ecuador S.A."/></div>
+      <div class="field"><label>Correo electrónico</label><input id="reg-email" type="email" placeholder="admin@misp.com"/></div>
+      <div class="field"><label>Contraseña</label><input id="reg-pwd" type="password" placeholder="Mínimo 6 caracteres"/></div>
+      <button class="btn-primary" onclick="registrar()">Crear cuenta</button>
+      <div class="err-msg" id="reg-err"></div>
+      <div class="auth-switch">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="auth-wrap" id="login-screen">
+  <div class="auth-box">
+    <div class="brand">
+      <div class="brand-logo">PreCall</div>
+      <div class="brand-tag">Anticipa. No Reacciones.</div>
+    </div>
+    <div class="auth-card">
+      <h2>Iniciar sesión</h2>
+      <div class="field"><label>Correo electrónico</label><input id="usr" type="email" placeholder="admin@misp.com"/></div>
+      <div class="field"><label>Contraseña</label><input id="pwd" type="password" placeholder="••••••••"/></div>
+      <button class="btn-primary" onclick="login()">Entrar</button>
+      <div class="err-msg" id="login-err">Credenciales incorrectas</div>
+      <div class="auth-hint">Demo: <strong>demo@precall.ec</strong> / <strong>precall123</strong></div>
+      <div class="auth-switch">¿No tienes cuenta? <a onclick="showReg()">Regístrate gratis</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">PreCall</div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user"></span>
+      <button class="btn-ghost" onclick="logout()">Cerrar sesión</button>
+    </div>
+  </div>
+  <main>
+    <!-- UPLOAD -->
+    <div id="upload-section">
+      <div class="upload-zone">
+        <input type="file" accept=".csv,.xls,.xlsx" id="file-input" onchange="handleFile(this)"/>
+        <div class="upload-icon">📂</div>
+        <h3>Sube tu archivo de datos</h3>
+        <p>CSV o Excel (.xls / .xlsx) — arrastra o haz clic</p>
+        <div class="upload-cols">
+          <span class="col-tag">cliente</span><span class="col-tag">sector</span>
+          <span class="col-tag">nodo</span><span class="col-tag">tecnico</span>
+          <span class="col-tag">tickets</span><span class="col-tag">visitas</span>
+          <span class="col-tag">llamadas</span><span class="col-tag">reincidencias</span>
+          <span class="col-tag">dias_sin_pago</span><span class="col-tag">hora_falla</span>
+        </div>
+      </div>
+      <div class="upload-actions">
+        <button class="btn-outline" onclick="loadDemo()">📊 Ver datos de ejemplo</button>
+        <button class="btn-outline green" onclick="downloadExcel()">⬇ Descargar Excel de prueba</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+      <div class="dash-header">
+        <div>
+          <div class="dash-title">Dashboard predictivo</div>
+          <div class="dash-sub" id="dash-sub">Análisis en tiempo real</div>
+        </div>
+        <span class="tag-demo" id="tag-demo">Datos de ejemplo</span>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat blue"><div class="stat-lbl">Clientes analizados</div><div class="stat-val c-blue" id="s-total">0</div><div class="stat-hint">en total</div></div>
+        <div class="stat red"><div class="stat-lbl">Riesgo alto</div><div class="stat-val c-red" id="s-alto">0</div><div class="stat-hint">atención inmediata</div></div>
+        <div class="stat yellow"><div class="stat-lbl">Riesgo medio</div><div class="stat-val c-yellow" id="s-medio">0</div><div class="stat-hint">monitorear esta semana</div></div>
+        <div class="stat green"><div class="stat-lbl">Ahorro estimado</div><div class="stat-val c-green" id="s-ahorro">$0</div><div class="stat-hint">visitas y llamadas evitadas</div></div>
+        <div class="stat purple"><div class="stat-lbl">Tasa de riesgo</div><div class="stat-val c-purple" id="s-tasa">0%</div><div class="stat-hint">sobre total</div></div>
+      </div>
+
+      <!-- FILA 1: Clientes en riesgo (full) -->
+      <div class="panels-grid full" style="margin-bottom:18px">
+        <div class="panel">
+          <div class="panel-hd">
+            <span class="panel-title">🚨 Clientes en riesgo — prioridad de contacto</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Cliente</th><th>Sector</th><th>Nodo</th><th>Técnico</th>
+                <th class="num">Tickets</th><th class="num">Visitas</th><th class="num">Llamadas</th>
+                <th class="num">Reinc.</th><th class="num">Días s/pago</th><th>Riesgo</th>
+              </tr></thead>
+              <tbody id="tbl-clientes"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILA 2: Sectores + Nodos -->
+      <div class="panels-grid" style="margin-bottom:18px">
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">📍 Sectores críticos</span></div>
+          <div class="bar-list" id="bar-sectores"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">🔌 Nodos problemáticos</span></div>
+          <div class="bar-list" id="bar-nodos"></div>
+        </div>
+      </div>
+
+      <!-- FILA 3: Técnicos + Horarios -->
+      <div class="panels-grid" style="margin-bottom:18px">
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">🔧 Técnicos con más retrabajos</span></div>
+          <div class="bar-list" id="bar-tecnicos"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">🕐 Horarios críticos de falla</span></div>
+          <div id="heatmap-wrap"></div>
+        </div>
+      </div>
+
+      <!-- FILA 4: Gráfico distribución -->
+      <div class="panels-grid">
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">📊 Distribución de riesgo</span></div>
+          <canvas id="chart-riesgo" height="160"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><span class="panel-title">📈 Tickets por sector</span></div>
+          <canvas id="chart-sectores" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── USUARIOS (localStorage) ──
+function getUsers(){try{return JSON.parse(localStorage.getItem('pc_users')||'[]')}catch{return[]}}
+function saveUsers(u){localStorage.setItem('pc_users',JSON.stringify(u))}
+
+// seed demo user
+(function(){
+  const u=getUsers();
+  if(!u.find(x=>x.email==='demo@precall.ec')){
+    u.push({email:'demo@precall.ec',pwd:'precall123',empresa:'Demo ISP Ecuador'});
+    saveUsers(u);
+  }
+})();
+
+function showLogin(){
+  document.getElementById('reg-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+function showReg(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('reg-screen').style.display='flex';
+}
+function registrar(){
+  const emp=document.getElementById('reg-empresa').value.trim();
+  const em=document.getElementById('reg-email').value.trim();
+  const pw=document.getElementById('reg-pwd').value.trim();
+  const err=document.getElementById('reg-err');
+  if(!emp||!em||pw.length<6){err.textContent='Completa todos los campos (contraseña mín. 6 caracteres)';err.style.display='block';return;}
+  const users=getUsers();
+  if(users.find(u=>u.email===em)){err.textContent='Ese correo ya está registrado';err.style.display='block';return;}
+  users.push({email:em,pwd:pw,empresa:emp});
+  saveUsers(users);
+  err.style.display='none';
+  alert('Cuenta creada. Ahora inicia sesión.');
+  showLogin();
+}
+function login(){
+  const em=document.getElementById('usr').value.trim();
+  const pw=document.getElementById('pwd').value.trim();
+  const err=document.getElementById('login-err');
+  const users=getUsers();
+  const u=users.find(x=>x.email===em&&x.pwd===pw);
+  if(u){
+    err.style.display='none';
+    sessionStorage.setItem('pc_session',JSON.stringify(u));
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('topbar-user').textContent=u.empresa;
+  } else {
+    err.style.display='block';
+  }
+}
+function logout(){
+  sessionStorage.removeItem('pc_session');
+  document.getElementById('app').style.display='none';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('upload-section').style.display='block';
+  document.getElementById('login-screen').style.display='flex';
+}
+document.getElementById('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+// auto-login si hay sesión
+(function(){
+  const s=sessionStorage.getItem('pc_session');
+  if(s){try{const u=JSON.parse(s);document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('topbar-user').textContent=u.empresa;}catch{}}
+})();
+
+// ── DATOS DEMO ──
+const DEMO=[
+  {cliente:'Carlos Méndez',sector:'Norte',nodo:'Nodo-A1',tecnico:'Miguel Torres',tickets:7,visitas:4,llamadas:9,reincidencias:3,dias_sin_pago:15,hora_falla:14},
+  {cliente:'María Torres',sector:'Sur',nodo:'Nodo-C2',tecnico:'Andrés Ruiz',tickets:5,visitas:3,llamadas:6,reincidencias:2,dias_sin_pago:30,hora_falla:20},
+  {cliente:'Luis Ramírez',sector:'Centro',nodo:'Nodo-B1',tecnico:'Juan Perez',tickets:2,visitas:1,llamadas:2,reincidencias:0,dias_sin_pago:0,hora_falla:9},
+  {cliente:'Ana Jiménez',sector:'Norte',nodo:'Nodo-A1',tecnico:'Miguel Torres',tickets:8,visitas:5,llamadas:11,reincidencias:4,dias_sin_pago:5,hora_falla:15},
+  {cliente:'Pedro Vega',sector:'Este',nodo:'Nodo-D3',tecnico:'Luis Mora',tickets:1,visitas:0,llamadas:1,reincidencias:0,dias_sin_pago:0,hora_falla:10},
+  {cliente:'Rosa Cárdenas',sector:'Sur',nodo:'Nodo-C2',tecnico:'Andrés Ruiz',tickets:6,visitas:3,llamadas:8,reincidencias:3,dias_sin_pago:20,hora_falla:21},
+  {cliente:'Jorge Molina',sector:'Oeste',nodo:'Nodo-E1',tecnico:'Carlos Vera',tickets:3,visitas:2,llamadas:3,reincidencias:1,dias_sin_pago:0,hora_falla:8},
+  {cliente:'Elena Paredes',sector:'Norte',nodo:'Nodo-A2',tecnico:'Miguel Torres',tickets:9,visitas:6,llamadas:12,reincidencias:5,dias_sin_pago:10,hora_falla:19},
+  {cliente:'Diego Castro',sector:'Centro',nodo:'Nodo-B2',tecnico:'Juan Perez',tickets:4,visitas:2,llamadas:4,reincidencias:1,dias_sin_pago:5,hora_falla:11},
+  {cliente:'Sofía Ríos',sector:'Este',nodo:'Nodo-D1',tecnico:'Luis Mora',tickets:2,visitas:1,llamadas:2,reincidencias:0,dias_sin_pago:0,hora_falla:13},
+  {cliente:'Marco Herrera',sector:'Sur',nodo:'Nodo-C1',tecnico:'Andrés Ruiz',tickets:7,visitas:4,llamadas:9,reincidencias:3,dias_sin_pago:25,hora_falla:20},
+  {cliente:'Lucía Mora',sector:'Oeste',nodo:'Nodo-E2',tecnico:'Carlos Vera',tickets:1,visitas:0,llamadas:1,reincidencias:0,dias_sin_pago:0,hora_falla:7},
+  {cliente:'Andrés León',sector:'Norte',nodo:'Nodo-A1',tecnico:'Miguel Torres',tickets:5,visitas:3,llamadas:7,reincidencias:2,dias_sin_pago:8,hora_falla:16},
+  {cliente:'Patricia Ruiz',sector:'Centro',nodo:'Nodo-B1',tecnico:'Juan Perez',tickets:3,visitas:1,llamadas:3,reincidencias:0,dias_sin_pago:2,hora_falla:10},
+  {cliente:'Iván Flores',sector:'Este',nodo:'Nodo-D3',tecnico:'Luis Mora',tickets:6,visitas:4,llamadas:8,reincidencias:3,dias_sin_pago:35,hora_falla:22},
+  {cliente:'Gabriela Salas',sector:'Sur',nodo:'Nodo-C2',tecnico:'Andrés Ruiz',tickets:4,visitas:2,llamadas:5,reincidencias:1,dias_sin_pago:12,hora_falla:19},
+  {cliente:'Roberto Peña',sector:'Norte',nodo:'Nodo-A2',tecnico:'Miguel Torres',tickets:10,visitas:7,llamadas:13,reincidencias:6,dias_sin_pago:3,hora_falla:14},
+  {cliente:'Fernanda Loja',sector:'Centro',nodo:'Nodo-B3',tecnico:'Juan Perez',tickets:1,visitas:0,llamadas:1,reincidencias:0,dias_sin_pago:0,hora_falla:9},
+  {cliente:'Sebastián Cruz',sector:'Oeste',nodo:'Nodo-E1',tecnico:'Carlos Vera',tickets:8,visitas:5,llamadas:10,reincidencias:4,dias_sin_pago:18,hora_falla:21},
+  {cliente:'Valeria Mena',sector:'Este',nodo:'Nodo-D2',tecnico:'Luis Mora',tickets:3,visitas:1,llamadas:3,reincidencias:0,dias_sin_pago:0,hora_falla:15},
+  {cliente:'Hugo Vargas',sector:'Norte',nodo:'Nodo-A1',tecnico:'Miguel Torres',tickets:6,visitas:3,llamadas:8,reincidencias:2,dias_sin_pago:22,hora_falla:20},
+  {cliente:'Camila Ortiz',sector:'Sur',nodo:'Nodo-C3',tecnico:'Andrés Ruiz',tickets:2,visitas:1,llamadas:2,reincidencias:0,dias_sin_pago:5,hora_falla:8},
+  {cliente:'Mateo Rivas',sector:'Centro',nodo:'Nodo-B2',tecnico:'Juan Perez',tickets:5,visitas:3,llamadas:6,reincidencias:2,dias_sin_pago:10,hora_falla:11},
+  {cliente:'Daniela Pinto',sector:'Oeste',nodo:'Nodo-E1',tecnico:'Carlos Vera',tickets:9,visitas:6,llamadas:11,reincidencias:5,dias_sin_pago:0,hora_falla:22},
+  {cliente:'Cristian Aguirre',sector:'Este',nodo:'Nodo-D3',tecnico:'Luis Mora',tickets:4,visitas:2,llamadas:4,reincidencias:1,dias_sin_pago:7,hora_falla:17},
+];
+
+// ── ALGORITMO PREDICTIVO ──
+function calcScore(r){
+  let s=0;
+  s+=Math.min(+r.tickets||0,10)*3;
+  s+=Math.min(+r.visitas||0,10)*2.5;
+  s+=Math.min(+r.llamadas||0,10)*1.5;
+  s+=Math.min(+r.reincidencias||0,5)*6;
+  s+=Math.min(+r.dias_sin_pago||0,30)*0.6;
+  return s;
+}
+function calcRiesgo(r){const s=calcScore(r);return s>=32?'Alto':s>=16?'Medio':'Bajo'}
+
+let charts=[];
+function destroyCharts(){charts.forEach(c=>{try{c.destroy()}catch{}});charts=[]}
+
+function renderDashboard(data,isDemo){
+  destroyCharts();
+  const rows=data.map(r=>({...r,riesgo:calcRiesgo(r),score:calcScore(r)}));
+  rows.sort((a,b)=>b.score-a.score);
+
+  const alto=rows.filter(r=>r.riesgo==='Alto').length;
+  const medio=rows.filter(r=>r.riesgo==='Medio').length;
+  const bajo=rows.filter(r=>r.riesgo==='Bajo').length;
+  const tasa=rows.length?Math.round((alto+medio)/rows.length*100):0;
+  const ahorro=alto*48+medio*22;
+
+  document.getElementById('s-total').textContent=rows.length;
+  document.getElementById('s-alto').textContent=alto;
+  document.getElementById('s-medio').textContent=medio;
+  document.getElementById('s-ahorro').textContent='$'+ahorro;
+  document.getElementById('s-tasa').textContent=tasa+'%';
+  document.getElementById('tag-demo').style.display=isDemo?'inline':'none';
+  document.getElementById('dash-sub').textContent=isDemo?'Datos de ejemplo — sube tu archivo para análisis real':`${rows.length} registros cargados`;
+
+  // ── TABLA ──
+  const riesgoRows=rows.filter(r=>r.riesgo!=='Bajo');
+  document.getElementById('tbl-clientes').innerHTML=riesgoRows.length
+    ?riesgoRows.map((r,i)=>`<tr>
+      <td class="rank">${i+1}</td>
+      <td class="name-cell">${r.cliente||'—'}</td>
+      <td class="sector-cell">${r.sector||'—'}</td>
+      <td class="sector-cell">${r.nodo||'—'}</td>
+      <td class="sector-cell">${r.tecnico||'—'}</td>
+      <td class="num">${r.tickets||0}</td><td class="num">${r.visitas||0}</td>
+      <td class="num">${r.llamadas||0}</td><td class="num">${r.reincidencias||0}</td>
+      <td class="num">${r.dias_sin_pago||0}</td>
+      <td><span class="badge b-${r.riesgo.toLowerCase()}">${r.riesgo}</span></td>
+    </tr>`).join('')
+    :'<tr><td colspan="11" class="empty-row">Sin clientes de riesgo alto o medio 🎉</td></tr>';
+
+  // ── HELPER BAR LIST ──
+  function renderBars(elId,map,colorFn){
+    const arr=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,7);
+    const max=arr[0]?arr[0][1]:1;
+    document.getElementById(elId).innerHTML=arr.map(([n,v])=>`
+      <div class="bar-row">
+        <div class="bar-label" title="${n}">${n}</div>
+        <div class="bar-track"><div class="bar-fill ${colorFn(v,max)}" style="width:${Math.round(v/max*100)}%"></div></div>
+        <div class="bar-cnt">${v}</div>
+      </div>`).join('')||'<div style="color:var(--muted);font-size:.8rem">Sin datos</div>';
+  }
+
+  // sectores
+  const secMap={};
+  rows.forEach(r=>{if(r.sector){secMap[r.sector]=(secMap[r.sector]||0)+(r.riesgo==='Alto'?3:r.riesgo==='Medio'?1:0)}});
+  renderBars('bar-sectores',secMap,(v,m)=>v/m>.6?'danger':v/m>.3?'warn':'accent');
+
+  // nodos
+  const nodMap={};
+  rows.forEach(r=>{if(r.nodo){nodMap[r.nodo]=(nodMap[r.nodo]||0)+(+r.tickets||0)}});
+  renderBars('bar-nodos',nodMap,(v,m)=>v/m>.6?'danger':v/m>.3?'warn':'purple');
+
+  // técnicos (retrabajos = visitas reincidentes)
+  const tecMap={};
+  rows.forEach(r=>{if(r.tecnico){tecMap[r.tecnico]=(tecMap[r.tecnico]||0)+(+r.reincidencias||0)}});
+  renderBars('bar-tecnicos',tecMap,(v,m)=>v/m>.6?'danger':v/m>.3?'warn':'ok');
+
+  // ── HEATMAP HORARIOS ──
+  const hrMap=new Array(24).fill(0);
+  rows.forEach(r=>{const h=+r.hora_falla;if(h>=0&&h<24)hrMap[h]++});
+  const maxH=Math.max(...hrMap,1);
+  const shown=hrMap.slice(6,18); // 06:00-17:00 fila1, resto fila2 = mostrar 24 en grid 12+12
+  const all24=hrMap;
+  let html='<div class="hour-grid">';
+  for(let i=0;i<12;i++){
+    const h=i*2;const v=all24[h]+(all24[h+1]||0);const pct=v/maxH;
+    const bg=pct>.6?'rgba(239,68,68,':pct>.3?'rgba(245,158,11,':'rgba(59,130,246,';
+    html+=`<div class="hour-cell" style="background:${bg}${Math.max(.12,pct*.9)})">
+      <div class="hour-tip">${h}:00-${h+2}:00 — ${v} fallas</div></div>`;
+  }
+  html+='</div><div class="hour-labels">';
+  for(let i=0;i<12;i++)html+=`<div class="hour-lbl">${(i*2).toString().padStart(2,'0')}h</div>`;
+  html+='</div>';
+  document.getElementById('heatmap-wrap').innerHTML=html;
+
+  // ── CHARTS ──
+  const chartOpts={plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}},cutout:'60%'};
+  const c1=new Chart(document.getElementById('chart-riesgo').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['Alto','Medio','Bajo'],datasets:[{data:[alto,medio,bajo],backgroundColor:['#ef4444','#f59e0b','#10b981'],borderColor:'#13181f',borderWidth:3}]},
+    options:chartOpts
+  });
+  charts.push(c1);
+
+  const secLabels=Object.keys(secMap).slice(0,6);
+  const secTickets=secLabels.map(s=>rows.filter(r=>r.sector===s).reduce((a,r)=>a+(+r.tickets||0),0));
+  const c2=new Chart(document.getElementById('chart-sectores').getContext('2d'),{
+    type:'bar',
+    data:{labels:secLabels,datasets:[{label:'Tickets',data:secTickets,backgroundColor:'rgba(99,102,241,.7)',borderRadius:6,borderSkipped:false}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'#1e2530'}},y:{ticks:{color:'#64748b'},grid:{color:'#1e2530'}}}}
+  });
+  charts.push(c2);
+
+  document.getElementById('upload-section').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+}
+
+function loadDemo(){renderDashboard(DEMO,true)}
+
+function processRows(rows){
+  const data=rows.map(r=>({
+    cliente:r.cliente||r.Cliente||r.CLIENTE||'Sin nombre',
+    sector:r.sector||r.Sector||'Sin sector',
+    nodo:r.nodo||r.Nodo||'Sin nodo',
+    tecnico:r.tecnico||r.Tecnico||r.Técnico||'Sin técnico',
+    tickets:+r.tickets||+r.Tickets||0,
+    visitas:+r.visitas||+r.Visitas||0,
+    llamadas:+r.llamadas||+r.Llamadas||0,
+    reincidencias:+r.reincidencias||+r.Reincidencias||0,
+    dias_sin_pago:+r.dias_sin_pago||+r.Dias_sin_pago||0,
+    hora_falla:+r.hora_falla||+r.Hora_falla||0,
+  })).filter(r=>r.cliente!=='Sin nombre');
+  if(!data.length){alert('No se encontraron datos válidos.');return;}
+  renderDashboard(data,false);
+}
+
+function handleFile(input){
+  const f=input.files[0];if(!f)return;
+  const ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){
+    Papa.parse(f,{header:true,dynamicTyping:true,skipEmptyLines:true,
+      complete(r){processRows(r.data);},error(){alert('Error leyendo CSV.');}});
+  } else {
+    const reader=new FileReader();
+    reader.onload=e=>{try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      processRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:0}));
+    }catch(err){alert('Error leyendo Excel: '+err.message);}};
+    reader.readAsArrayBuffer(f);
+  }
+}
+
+function downloadExcel(){
+  const rows=[
+    ['cliente','sector','nodo','tecnico','tickets','visitas','llamadas','reincidencias','dias_sin_pago','hora_falla'],
+    ['Carlos Méndez','Norte','Nodo-A1','Miguel Torres',7,4,9,3,15,14],
+    ['María Torres','Sur','Nodo-C2','Andrés Ruiz',5,3,6,2,30,20],
+    ['Luis Ramírez','Centro','Nodo-B1','Juan Perez',2,1,2,0,0,9],
+    ['Ana Jiménez','Norte','Nodo-A1','Miguel Torres',8,5,11,4,5,15],
+    ['Pedro Vega','Este','Nodo-D3','Luis Mora',1,0,1,0,0,10],
+    ['Rosa Cárdenas','Sur','Nodo-C2','Andrés Ruiz',6,3,8,3,20,21],
+    ['Jorge Molina','Oeste','Nodo-E1','Carlos Vera',3,2,3,1,0,8],
+    ['Elena Paredes','Norte','Nodo-A2','Miguel Torres',9,6,12,5,10,19],
+    ['Diego Castro','Centro','Nodo-B2','Juan Perez',4,2,4,1,5,11],
+    ['Sofía Ríos','Este','Nodo-D1','Luis Mora',2,1,2,0,0,13],
+    ['Marco Herrera','Sur','Nodo-C1','Andrés Ruiz',7,4,9,3,25,20],
+    ['Lucía Mora','Oeste','Nodo-E2','Carlos Vera',1,0,1,0,0,7],
+    ['Andrés León','Norte','Nodo-A1','Miguel Torres',5,3,7,2,8,16],
+    ['Patricia Ruiz','Centro','Nodo-B1','Juan Perez',3,1,3,0,2,10],
+    ['Iván Flores','Este','Nodo-D3','Luis Mora',6,4,8,3,35,22],
+    ['Gabriela Salas','Sur','Nodo-C2','Andrés Ruiz',4,2,5,1,12,19],
+    ['Roberto Peña','Norte','Nodo-A2','Miguel Torres',10,7,13,6,3,14],
+    ['Fernanda Loja','Centro','Nodo-B3','Juan Perez',1,0,1,0,0,9],
+    ['Sebastián Cruz','Oeste','Nodo-E1','Carlos Vera',8,5,10,4,18,21],
+    ['Valeria Mena','Este','Nodo-D2','Luis Mora',3,1,3,0,0,15],
+    ['Hugo Vargas','Norte','Nodo-A1','Miguel Torres',6,3,8,2,22,20],
+    ['Camila Ortiz','Sur','Nodo-C3','Andrés Ruiz',2,1,2,0,5,8],
+    ['Mateo Rivas','Centro','Nodo-B2','Juan Perez',5,3,6,2,10,11],
+    ['Daniela Pinto','Oeste','Nodo-E1','Carlos Vera',9,6,11,5,0,22],
+    ['Cristian Aguirre','Este','Nodo-D3','Luis Mora',4,2,4,1,7,17],
+  ];
+  const xml=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="PreCall"><Table>${rows.map(r=>`<Row>${r.map(c=>`<Cell><Data ss:Type="${typeof c==='number'?'Number':'String'}">${c}</Data></Cell>`).join('')}</Row>`).join('')}</Table></Worksheet></Workbook>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([xml],{type:'application/vnd.ms-excel'}));
+  a.download='PreCall_Datos_Prueba.xls';a.click();
+}
+</script>
+</body>
+</html>
