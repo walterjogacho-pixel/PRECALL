@@ -254,13 +254,13 @@ tr.clickable:hover td{background:rgba(59,130,246,.04);cursor:pointer}
 .bar-num{width:22px;text-align:right;font-size:.7rem;color:var(--dim)}
 
 /* HEATMAP */
-.hm-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;padding:14px 16px 4px}
-.hm-cell{aspect-ratio:1;border-radius:5px;cursor:default;position:relative;transition:transform .15s}
-.hm-cell:hover{transform:scale(1.2);z-index:2}
+.hm-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;padding:14px 16px 4px}
+.hm-cell{height:32px;border-radius:4px;cursor:default;position:relative;transition:transform .15s}
+.hm-cell:hover{transform:scaleY(1.15);z-index:2}
 .hm-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:.67rem;white-space:nowrap;z-index:10;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 .hm-cell:hover .hm-tip{display:block}
-.hm-labels{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;padding:0 16px 14px}
-.hm-lbl{font-size:.58rem;color:var(--dim);text-align:center}
+.hm-labels{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;padding:0 16px 14px}
+.hm-lbl{font-size:.55rem;color:var(--dim);text-align:center}
 .hm-legend{display:flex;align-items:center;gap:7px;padding:0 16px 14px;font-size:.68rem;color:var(--dim)}
 .hm-lbar{flex:1;height:4px;border-radius:2px;background:linear-gradient(90deg,rgba(59,130,246,.2),rgba(245,158,11,.5),rgba(239,68,68,.9))}
 
@@ -884,11 +884,11 @@ function renderDashboard(data,isDemo){
   _rows.forEach(r=>{const h=+r.hora_falla;if(h>=0&&h<24)hr[h]++});
   const mxH=Math.max(...hr,1);
   let hg='',hl='';
-  for(let i=0;i<12;i++){
-    const v=hr[i*2]+(hr[i*2+1]||0);const p=v/mxH;
+  for(let i=0;i<24;i++){
+    const v=hr[i];const p=v/mxH;
     const bg=p>.6?`rgba(239,68,68,${.15+p*.75})`:p>.3?`rgba(245,158,11,${.15+p*.6})`:`rgba(59,130,246,${.1+p*.4})`;
-    hg+=`<div class="hm-cell" style="background:${bg}"><div class="hm-tip">${i*2}:00–${i*2+2}:00<br>${v} fallas</div></div>`;
-    hl+=`<div class="hm-lbl">${(i*2).toString().padStart(2,'0')}h</div>`;
+    hg+=`<div class="hm-cell" style="background:${bg}"><div class="hm-tip">${i.toString().padStart(2,'0')}:00<br>${v} falla${v!==1?'s':''}</div></div>`;
+    hl+=`<div class="hm-lbl">${i.toString().padStart(2,'0')}</div>`;
   }
   document.getElementById('hm-grid').innerHTML=hg;
   document.getElementById('hm-labels').innerHTML=hl;
@@ -1048,9 +1048,18 @@ function openModal(idx){
     </div>
 
     <div class="action-grid">
-      <div class="act-btn"><div class="act-ico">📞</div><span class="act-lbl">Llamada proactiva</span><span class="act-sub">Contactar antes de que escale</span></div>
-      <div class="act-btn"><div class="act-ico">🔧</div><span class="act-lbl">Visita preventiva</span><span class="act-sub">Resolver antes del reclamo</span></div>
-      <div class="act-btn"><div class="act-ico">🎁</div><span class="act-lbl">Oferta de retención</span><span class="act-sub">Evitar cancelación</span></div>
+      <div class="act-btn" onclick="genAI(${idx},'call')"><div class="act-ico">📞</div><span class="act-lbl">Guión de llamada ↗</span><span class="act-sub">Generado con IA</span></div>
+      <div class="act-btn" onclick="genAI(${idx},'visit')"><div class="act-ico">🔧</div><span class="act-lbl">Orden de visita ↗</span><span class="act-sub">Generado con IA</span></div>
+      <div class="act-btn" onclick="genAI(${idx},'retain')"><div class="act-ico">🎁</div><span class="act-lbl">Oferta de retención ↗</span><span class="act-sub">Generado con IA</span></div>
+    </div>
+    <div id="ai-output-${idx}" style="display:none;margin-bottom:14px">
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.72rem;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.06em" id="ai-label-${idx}">Generando...</span>
+          <button onclick="document.getElementById('ai-output-${idx}').style.display='none'" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.8rem">✕</button>
+        </div>
+        <div style="padding:14px;font-size:.82rem;color:var(--text);line-height:1.7;white-space:pre-wrap" id="ai-text-${idx}"></div>
+      </div>
     </div>
 
     <div class="factors-card">
@@ -1070,14 +1079,19 @@ function openModal(idx){
 
 function setStatus(idx,st,btn){
   _status[idx]=st;
-  document.querySelectorAll('.status-actions .sa-btn').forEach(b=>{b.classList.remove('active-contacted','active-resolved')});
-  if(st==='contacted')btn.classList.add('active-contacted');
-  if(st==='resolved')btn.classList.add('active-resolved');
-  // Update table badge
-  if(st==='resolved'){
-    const row=document.querySelector(`#tbl-body tr:nth-child(${idx+1})`);
-    if(row)row.style.opacity='.4';
-  }
+  // Reset botones
+  document.querySelectorAll('.status-actions .sa-btn').forEach(b=>b.classList.remove('active-contacted','active-resolved'));
+  if(st==='contacted') btn.classList.add('active-contacted');
+  if(st==='resolved')  btn.classList.add('active-resolved');
+  // Actualizar fila en tabla
+  const rows=document.querySelectorAll('#tbl-body tr');
+  rows.forEach(row=>{
+    const onclick=row.getAttribute('onclick')||'';
+    if(onclick.includes(`openModal(${idx})`)){
+      row.style.opacity = st==='resolved' ? '.35' : '1';
+      row.style.textDecoration = st==='resolved' ? 'line-through' : 'none';
+    }
+  });
 }
 
 function closeModal(e){if(e.target===document.getElementById('modal-overlay'))closeModalDirect()}
@@ -1097,8 +1111,96 @@ function filterRisk(level){
 }
 
 // ══════════════════════════════════════
-// EXPORT PDF
+// IA — GUIONES CON CLAUDE API
 // ══════════════════════════════════════
+async function genAI(idx, type){
+  const r=_rows[idx]; if(!r) return;
+  const out=document.getElementById(`ai-output-${idx}`);
+  const txt=document.getElementById(`ai-text-${idx}`);
+  const lbl=document.getElementById(`ai-label-${idx}`);
+  if(!out||!txt||!lbl) return;
+
+  const labels={call:'📞 Guión de llamada proactiva',visit:'🔧 Orden de visita preventiva',retain:'🎁 Oferta de retención'};
+  const prompts={
+    call:`Eres un asistente de operaciones para un ISP en Ecuador llamado PreCall.
+Genera un guión de llamada proactiva CORTO y NATURAL para que un agente del call center llame al cliente ANTES de que él se queje.
+
+Cliente: ${r.cliente}
+Sector: ${r.sector}
+Nodo: ${r.nodo||'—'}
+Tickets recientes: ${r.tickets}
+Visitas técnicas: ${r.visitas}
+Reincidencias: ${r.reincidencias}
+Días sin pago: ${r.dias_sin_pago}
+Risk Score: ${r.score}/100 — Riesgo ${r.riesgo}
+
+El guión debe:
+- Saludar al cliente por nombre
+- Mencionar que el ISP detectó el problema ANTES de que él llame
+- Ofrecer solución concreta (visita técnica o ajuste de nodo)
+- Ser amable, breve y profesional
+- Terminar con una pregunta de confirmación
+- Máximo 8 líneas`,
+
+    visit:`Eres un asistente de operaciones para un ISP en Ecuador llamado PreCall.
+Genera una orden de visita técnica preventiva clara y estructurada.
+
+Cliente: ${r.cliente}
+Sector: ${r.sector}
+Nodo: ${r.nodo||'—'}
+Técnico asignado: ${r.tecnico||'Por asignar'}
+Tickets recientes: ${r.tickets}
+Visitas previas: ${r.visitas}
+Reincidencias: ${r.reincidencias}
+Risk Score: ${r.score}/100
+
+La orden debe incluir:
+- Datos del cliente y ubicación
+- Motivo de la visita (preventiva, no reactiva)
+- Antecedentes del problema
+- Instrucciones al técnico
+- Objetivo de la visita
+- Prioridad según el score`,
+
+    retain:`Eres un asistente de retención de clientes para un ISP en Ecuador llamado PreCall.
+Genera una oferta de retención personalizada para evitar que este cliente cancele el servicio.
+
+Cliente: ${r.cliente}
+Sector: ${r.sector}
+Días sin pago: ${r.dias_sin_pago}
+Tickets recientes: ${r.tickets}
+Reincidencias: ${r.reincidencias}
+Risk Score: ${r.score}/100 — Riesgo ${r.riesgo}
+
+La oferta debe:
+- Reconocer los problemas que ha tenido
+- Ofrecer una solución técnica + beneficio comercial
+- Incluir opciones concretas (descuento, upgrade, mes gratis, etc.)
+- Ser empática y orientada a fidelizar
+- Máximo 10 líneas`
+  };
+
+  out.style.display='block';
+  lbl.textContent=labels[type];
+  txt.textContent='✦ Generando con IA...';
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompts[type]}]
+      })
+    });
+    const data=await res.json();
+    const content=data?.content?.[0]?.text||'No se pudo generar el contenido.';
+    txt.textContent=content;
+  }catch(e){
+    txt.textContent='Error al conectar con la IA. Verifica tu conexión e intenta de nuevo.';
+  }
+}
 function exportPDF(){
   if(!_rows.length){alert('Primero carga datos para exportar.');return}
   const alto=_rows.filter(r=>r.riesgo==='Alto');
