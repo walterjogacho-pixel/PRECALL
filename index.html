@@ -1187,7 +1187,7 @@ La oferta debe:
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
@@ -1196,7 +1196,14 @@ La oferta debe:
     });
     const data=await res.json();
     const content=data?.content?.[0]?.text||'No se pudo generar el contenido.';
-    txt.textContent=content;
+    // Stream effect
+    txt.textContent='';
+    let i=0;
+    const interval=setInterval(()=>{
+      txt.textContent+=content[i]||'';
+      i++;
+      if(i>=content.length)clearInterval(interval);
+    },12);
   }catch(e){
     txt.textContent='Error al conectar con la IA. Verifica tu conexión e intenta de nuevo.';
   }
