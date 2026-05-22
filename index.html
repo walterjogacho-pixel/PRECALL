@@ -1185,18 +1185,14 @@ La oferta debe:
   txt.textContent='✦ Generando con IA...';
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const GEMINI_KEY='AIzaSyBlfuVKXH6coheJxPJJC-B3Po4LKW62fp4';
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompts[type]}]
-      })
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompts[type]}]}]})
     });
     const data=await res.json();
-    const content=data?.content?.[0]?.text||'No se pudo generar el contenido.';
-    // Stream effect
+    const content=data?.candidates?.[0]?.content?.parts?.[0]?.text||'No se pudo generar el contenido.';
     txt.textContent='';
     let i=0;
     const interval=setInterval(()=>{
